@@ -54,6 +54,12 @@ final class SubscriptionStore: ObservableObject {
     }
 
     func remove(at offsets: IndexSet) {
-        subscriptions.remove(atOffsets: offsets)
+        // Remove at offsets without relying on SwiftUI's Array extension.
+        // Iterate indices in descending order to keep removals valid.
+        for index in offsets.sorted(by: >) {
+            if subscriptions.indices.contains(index) {
+                subscriptions.remove(at: index)
+            }
+        }
     }
 }
