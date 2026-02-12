@@ -26,6 +26,15 @@ enum KeychainKeys {
 }
 
 final class AuthService {
+    // In-memory cache of the token to allow immediate use right after login without
+    // requiring a Keychain read or biometric prompt. This cache only lasts for the
+    // lifetime of the process (exactly what we want for immediate fetches).
+    private static var cachedToken: String?
+    // Single-flight Task for retrieveToken to avoid multiple concurrent biometric prompts
+    private static var retrieveTask: Task<String, Error>?
+    // Serial queue to atomically create/check the retrieveTask
+    private static let retrieveTaskQueue = DispatchQueue(label: "AuthService.retrieveTaskQueue")
+
     static func authenticate(email: String, completion: @escaping (Result<AuthResponse, Error>) -> Void) {
         let url = Config.backendHost.appendingPathComponent("api/auth")
         var req = URLRequest(url: url)
@@ -64,6 +73,10 @@ final class AuthService {
 
     // Store token in Keychain using accessible-when-unlocked attribute to avoid system UI during store
     static func storeToken(_ token: String) throws {
+        // Cache token in memory immediately to avoid races where callers request the token
+        // before Keychain storage completes (this prevents extra biometric prompts).
+        cachedToken = token
+
         let tokenData = Data(token.utf8)
 
         // Prepare query for adding. If item exists, we'll update instead.
@@ -101,59 +114,114 @@ final class AuthService {
     // Retrieve token after performing biometric authentication (Face ID).
     // This is now async and performs evaluatePolicy on the main thread, reading Keychain on a background queue.
     static func retrieveToken(withPrompt prompt: String = "Unlock to access token") async throws -> String {
-        let context = LAContext()
-        var authError: NSError?
-        let reason = prompt
+        // If we have a cached token in-memory, return it immediately (no biometric required).
+        if let t = cachedToken {
+            return t
+        }
 
-        // Determine available policy: prefer biometrics, otherwise deviceOwnerAuthentication
-        let policy: LAPolicy = context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &authError) ? .deviceOwnerAuthenticationWithBiometrics : .deviceOwnerAuthentication
+        // Atomically check/create a single-flight Task so multiple concurrent callers
+        // don't each create and run the biometric flow.
+        var taskToAwait: Task<String, Error>!
+        AuthService.retrieveTaskQueue.sync {
+            if let existing = retrieveTask {
+                taskToAwait = existing
+            } else {
+                let newTask = Task<String, Error> {
+                    // First, attempt a non-interactive Keychain read (no biometric prompt)
+                    if let token = try? await withCheckedThrowingContinuation({ (continuation: CheckedContinuation<String, Error>) in
+                        DispatchQueue.global(qos: .userInitiated).async {
+                            let query: [CFString: Any] = [
+                                kSecClass: kSecClassGenericPassword,
+                                kSecAttrService: KeychainKeys.service,
+                                kSecAttrAccount: KeychainKeys.account,
+                                kSecReturnData: true,
+                                kSecMatchLimit: kSecMatchLimitOne
+                            ]
+                            var item: CFTypeRef?
+                            let status = SecItemCopyMatching(query as CFDictionary, &item)
+                            if status == errSecSuccess {
+                                if let data = item as? Data, let token = String(data: data, encoding: .utf8) {
+                                    continuation.resume(returning: token)
+                                } else {
+                                    continuation.resume(throwing: AuthError.missingData)
+                                }
+                            } else {
+                                continuation.resume(throwing: AuthError.keychainError(status))
+                            }
+                        }
+                    }) {
+                        cachedToken = token
+                        return token
+                    }
 
-        // Evaluate policy on main thread to allow system UI to present
-        let didAuthenticate: Bool
-        do {
-            didAuthenticate = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Error>) in
-                DispatchQueue.main.async {
-                    context.evaluatePolicy(policy, localizedReason: reason) { success, evalError in
-                        if success {
-                            continuation.resume(returning: true)
-                        } else {
-                            continuation.resume(throwing: evalError ?? NSError(domain: "AuthService", code: -1, userInfo: nil))
+                    // Otherwise, perform biometric authentication and read using kSecUseAuthenticationContext to allow access.
+                    let context = LAContext()
+                    var authError: NSError?
+                    let reason = prompt
+
+                    let policy: LAPolicy = context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &authError) ? .deviceOwnerAuthenticationWithBiometrics : .deviceOwnerAuthentication
+
+                    let didAuthenticate: Bool
+                    do {
+                        didAuthenticate = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Error>) in
+                            DispatchQueue.main.async {
+                                context.evaluatePolicy(policy, localizedReason: reason) { success, evalError in
+                                    if success {
+                                        continuation.resume(returning: true)
+                                    } else {
+                                        continuation.resume(throwing: evalError ?? NSError(domain: "AuthService", code: -1, userInfo: nil))
+                                    }
+                                }
+                            }
+                        }
+                    } catch {
+                        throw AuthError.biometricFailed(error)
+                    }
+
+                    if !didAuthenticate {
+                        throw AuthError.biometricFailed(NSError(domain: "AuthService", code: -1, userInfo: nil))
+                    }
+
+                    return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
+                        DispatchQueue.global(qos: .userInitiated).async {
+                            let query: [CFString: Any] = [
+                                kSecClass: kSecClassGenericPassword,
+                                kSecAttrService: KeychainKeys.service,
+                                kSecAttrAccount: KeychainKeys.account,
+                                kSecReturnData: true,
+                                kSecMatchLimit: kSecMatchLimitOne,
+                                kSecUseAuthenticationContext: context
+                            ]
+
+                            var item: CFTypeRef?
+                            let status = SecItemCopyMatching(query as CFDictionary, &item)
+                            if status == errSecSuccess {
+                                if let data = item as? Data, let token = String(data: data, encoding: .utf8) {
+                                    cachedToken = token
+                                    continuation.resume(returning: token)
+                                } else {
+                                    continuation.resume(throwing: AuthError.missingData)
+                                }
+                            } else {
+                                continuation.resume(throwing: AuthError.keychainError(status))
+                            }
                         }
                     }
                 }
-            }
-        } catch {
-            throw AuthError.biometricFailed(error)
-        }
-
-        if !didAuthenticate {
-            throw AuthError.biometricFailed(NSError(domain: "AuthService", code: -1, userInfo: nil))
-        }
-
-        // Read token from keychain on a background queue
-        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
-            DispatchQueue.global(qos: .userInitiated).async {
-                let query: [CFString: Any] = [
-                    kSecClass: kSecClassGenericPassword,
-                    kSecAttrService: KeychainKeys.service,
-                    kSecAttrAccount: KeychainKeys.account,
-                    kSecReturnData: true,
-                    kSecMatchLimit: kSecMatchLimitOne
-                ]
-
-                var item: CFTypeRef?
-                let status = SecItemCopyMatching(query as CFDictionary, &item)
-                if status == errSecSuccess {
-                    if let data = item as? Data, let token = String(data: data, encoding: .utf8) {
-                        continuation.resume(returning: token)
-                    } else {
-                        continuation.resume(throwing: AuthError.missingData)
-                    }
-                } else {
-                    continuation.resume(throwing: AuthError.keychainError(status))
-                }
+                retrieveTask = newTask
+                taskToAwait = newTask
             }
         }
+
+        // Await the task outside the lock
+        defer {
+            // clear retrieveTask when finished
+            AuthService.retrieveTaskQueue.async {
+                retrieveTask = nil
+            }
+        }
+
+        return try await taskToAwait.value
     }
 
     // Check presence of a token without prompting biometric UI
@@ -183,5 +251,8 @@ final class AuthService {
 
         // Clear presence flag
         UserDefaults.standard.set(false, forKey: KeychainKeys.presenceFlag)
+
+        // Clear cached token in memory
+        cachedToken = nil
     }
 }

@@ -9,6 +9,10 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var auth = AuthStore()
+    @StateObject private var subs = SubscriptionStore()
+    @State private var loadingSubscriptions: Bool = false
+    @State private var subsError: String?
+    @State private var hasFetchedSubscriptions: Bool = false
 
     var body: some View {
         ZStack {
@@ -16,8 +20,67 @@ struct ContentView: View {
                 .ignoresSafeArea()
 
             if auth.isAuthenticated {
-                Text("Hello user")
-                    .font(.title)
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("Hello user")
+                            .font(.title)
+                        Spacer()
+                        Button("Logout") {
+                            auth.logout()
+                        }
+                        .buttonStyle(.bordered)
+                    }
+
+                    if loadingSubscriptions {
+                        ProgressView("Loading subscriptions...")
+                    } else if let err = subsError {
+                        Text("Failed to load: \(err)")
+                            .foregroundColor(.red)
+                    } else if subs.subscriptions.isEmpty {
+                        Text("No subscriptions")
+                            .foregroundColor(.secondary)
+                    } else {
+                        List(subs.subscriptions) { s in
+                            VStack(alignment: .leading) {
+                                Text(s.name)
+                                    .font(.headline)
+                                HStack {
+                                    Text(String(format: "%.2f %@", s.price, ""))
+                                        .font(.subheadline)
+                                    Spacer()
+                                    Text(s.nextDueDate, style: .date)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            .padding(.vertical, 6)
+                        }
+                        .listStyle(.plain)
+                    }
+
+                    Spacer()
+                }
+                .padding(20)
+                .onAppear {
+                    Task {
+                        if !hasFetchedSubscriptions {
+                            await fetchSubscriptionsIfNeeded()
+                        }
+                    }
+                }
+                .onChange(of: auth.isAuthenticated) { newValue in
+                    if newValue {
+                        Task {
+                            if !hasFetchedSubscriptions {
+                                await fetchSubscriptionsIfNeeded()
+                            }
+                        }
+                    } else {
+                        // Clear subscriptions when logged out
+                        subs.clear()
+                        hasFetchedSubscriptions = false
+                    }
+                }
             } else {
                 HStack(spacing: 12) {
                     TextField("Email", text: $auth.email)
@@ -42,8 +105,34 @@ struct ContentView: View {
                 .padding(.horizontal, 20)
             }
         }
-        .alert(isPresented: Binding(get: { auth.errorMessage != nil }, set: { if !$0 { auth.errorMessage = nil } })) {
-            Alert(title: Text("Error"), message: Text(auth.errorMessage ?? ""), dismissButton: .default(Text("OK")))
+        .alert(isPresented: Binding(get: { auth.errorMessage != nil || subsError != nil }, set: { if !$0 { auth.errorMessage = nil; subsError = nil } })) {
+            Alert(title: Text("Error"), message: Text(auth.errorMessage ?? subsError ?? ""), dismissButton: .default(Text("OK")))
+        }
+    }
+
+    private func fetchSubscriptionsIfNeeded() async {
+        // Only attempt to fetch if authenticated flag is true and a token exists in Keychain
+        guard auth.isAuthenticated else { return }
+
+        // mark we've started fetch to avoid duplicate attempts
+        hasFetchedSubscriptions = true
+
+        // Show loading state
+        DispatchQueue.main.async {
+            self.loadingSubscriptions = true
+            self.subsError = nil
+        }
+
+        do {
+            try await subs.refreshFromServer()
+        } catch {
+            DispatchQueue.main.async {
+                self.subsError = error.localizedDescription
+            }
+        }
+
+        DispatchQueue.main.async {
+            self.loadingSubscriptions = false
         }
     }
 }
