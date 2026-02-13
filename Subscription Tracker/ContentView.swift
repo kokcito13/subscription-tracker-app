@@ -14,53 +14,70 @@ struct ContentView: View {
     @State private var subsError: String?
     @State private var hasFetchedSubscriptions: Bool = false
 
+    // Presentation state for Add sheet
+    @State private var showingAddSheet: Bool = false
+
+    // Focus state for keyboard management
+    @FocusState private var emailFieldFocused: Bool
+
     var body: some View {
         ZStack {
             Color.white
                 .ignoresSafeArea()
 
             if auth.isAuthenticated {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Text("Hello user")
-                            .font(.title)
-                        Spacer()
-                        Button("Logout") {
-                            auth.logout()
-                        }
-                        .buttonStyle(.bordered)
-                    }
-
-                    if loadingSubscriptions {
-                        ProgressView("Loading subscriptions...")
-                    } else if let err = subsError {
-                        Text("Failed to load: \(err)")
-                            .foregroundColor(.red)
-                    } else if subs.subscriptions.isEmpty {
-                        Text("No subscriptions")
-                            .foregroundColor(.secondary)
-                    } else {
-                        List(subs.subscriptions) { s in
-                            VStack(alignment: .leading) {
-                                Text(s.name)
-                                    .font(.headline)
-                                HStack {
-                                    Text(String(format: "%.2f %@", s.price, ""))
-                                        .font(.subheadline)
-                                    Spacer()
-                                    Text(s.nextDueDate, style: .date)
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
+                NavigationView {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Text("Hello user")
+                                .font(.title)
+                            Spacer()
+                            Button("Logout") {
+                                auth.logout()
                             }
-                            .padding(.vertical, 6)
+                            .buttonStyle(.bordered)
                         }
-                        .listStyle(.plain)
-                    }
 
-                    Spacer()
+                        if loadingSubscriptions {
+                            ProgressView("Loading subscriptions...")
+                        } else if let err = subsError {
+                            Text("Failed to load: \(err)")
+                                .foregroundColor(.red)
+                        } else if subs.subscriptions.isEmpty {
+                            Text("No subscriptions")
+                                .foregroundColor(.secondary)
+                        } else {
+                            List(subs.subscriptions) { s in
+                                VStack(alignment: .leading) {
+                                    Text(s.name)
+                                        .font(.headline)
+                                    HStack {
+                                        Text(String(format: "%.2f %@", s.price, ""))
+                                            .font(.subheadline)
+                                        Spacer()
+                                        Text(s.nextDueDate, style: .date)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                                .padding(.vertical, 6)
+                            }
+                            .listStyle(.plain)
+                        }
+
+                        Spacer()
+                    }
+                    .padding(20)
+                    .navigationTitle("Subscriptions")
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Button(action: { showingAddSheet = true }) {
+                                Image(systemName: "plus.circle.fill")
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
+                    }
                 }
-                .padding(20)
                 .onAppear {
                     Task {
                         if !hasFetchedSubscriptions {
@@ -81,6 +98,9 @@ struct ContentView: View {
                         hasFetchedSubscriptions = false
                     }
                 }
+                .sheet(isPresented: $showingAddSheet) {
+                    AddSubscriptionView(store: subs)
+                }
             } else {
                 HStack(spacing: 12) {
                     TextField("Email", text: $auth.email)
@@ -88,10 +108,11 @@ struct ContentView: View {
                         .autocapitalization(.none)
                         .disableAutocorrection(true)
                         .textFieldStyle(.roundedBorder)
+                        .focused($emailFieldFocused)
 
                     Button("Login / Register") {
-                        // Dismiss keyboard before performing authentication to avoid keyboard/system UI conflicts
-                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                        // Dismiss keyboard using SwiftUI FocusState instead of sending a global action
+                        emailFieldFocused = false
 
                         Task {
                             // small delay to allow keyboard to dismiss and layout to settle
