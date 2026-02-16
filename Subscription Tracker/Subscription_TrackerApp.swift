@@ -9,6 +9,12 @@ import SwiftUI
 
 @main
 struct Subscription_TrackerApp: App {
+    init() {
+        #if DEBUG
+        URLProtocol.registerClass(NetworkLogger.self)
+        #endif
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()

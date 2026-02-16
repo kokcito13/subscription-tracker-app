@@ -16,6 +16,6 @@ enum Config {
             return url
         }
         // fallback
-        return URL(string: "https://8c12b6f3-ff66-4f8b-90b6-2293dcc236b9.mock.pstmn.io")!
+        return URL(string: "https://hippl.site")!
     }
 }
