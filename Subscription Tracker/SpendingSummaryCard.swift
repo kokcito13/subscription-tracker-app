@@ -120,7 +120,6 @@ struct SpendingSummaryCards: View {
                         icon: "sun.max.fill",
                         variant: .monthly
                     )
-                    .frame(maxWidth: .infinity)
                     
                     SpendingSummaryCard(
                         title: "Yearly Spending",
@@ -129,7 +128,6 @@ struct SpendingSummaryCards: View {
                         icon: "calendar",
                         variant: .yearly
                     )
-                    .frame(maxWidth: .infinity)
                 }
             } else {
                 // Horizontal layout for normal screens with equal width cards
