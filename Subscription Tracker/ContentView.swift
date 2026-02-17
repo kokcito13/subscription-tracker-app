@@ -278,21 +278,10 @@ struct AdaptiveSummaryView: View {
     var monthly: String
     var yearly: String
 
-    @Environment(\.horizontalSizeClass) var hSize
-
     var body: some View {
-        Group {
-            if hSize == .compact {
-                VStack(spacing: 12) {
-                    SummaryCard(title: "Monthly Spending", value: monthly, subtitle: "Compared to last month", iconName: "creditcard.fill")
-                    SummaryCard(title: "Yearly Spending", value: yearly, subtitle: "Projected total", iconName: "calendar")
-                }
-            } else {
-                HStack(spacing: 12) {
-                    SummaryCard(title: "Monthly Spending", value: monthly, subtitle: "Compared to last month", iconName: "creditcard.fill")
-                    SummaryCard(title: "Yearly Spending", value: yearly, subtitle: "Projected total", iconName: "calendar")
-                }
-            }
+        HStack(spacing: 12) {
+            SummaryCard(title: "Monthly Spending", value: monthly, subtitle: "Compared to last month", iconName: "creditcard.fill")
+            SummaryCard(title: "Yearly Spending", value: yearly, subtitle: "Projected total", iconName: "calendar")
         }
     }
 }
