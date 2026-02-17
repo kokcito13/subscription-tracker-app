@@ -110,7 +110,7 @@ struct SpendingSummaryCards: View {
     
     var body: some View {
         GeometryReader { geometry in
-            // Stack vertically on very small screens (< 360px)
+            // Stack vertically on very small screens (< 360px) for better readability
             if geometry.size.width < 360 {
                 VStack(spacing: 16) {
                     SpendingSummaryCard(
@@ -120,6 +120,7 @@ struct SpendingSummaryCards: View {
                         icon: "sun.max.fill",
                         variant: .monthly
                     )
+                    .frame(maxWidth: .infinity)
                     
                     SpendingSummaryCard(
                         title: "Yearly Spending",
@@ -128,9 +129,10 @@ struct SpendingSummaryCards: View {
                         icon: "calendar",
                         variant: .yearly
                     )
+                    .frame(maxWidth: .infinity)
                 }
             } else {
-                // Horizontal layout for normal screens
+                // Horizontal layout for normal screens with equal width cards
                 HStack(spacing: 16) {
                     SpendingSummaryCard(
                         title: "Monthly Spending",
@@ -139,7 +141,7 @@ struct SpendingSummaryCards: View {
                         icon: "sun.max.fill",
                         variant: .monthly
                     )
-                    .frame(width: (geometry.size.width - 16) / 2)
+                    .frame(maxWidth: .infinity)
                     
                     SpendingSummaryCard(
                         title: "Yearly Spending",
@@ -148,7 +150,7 @@ struct SpendingSummaryCards: View {
                         icon: "calendar",
                         variant: .yearly
                     )
-                    .frame(width: (geometry.size.width - 16) / 2)
+                    .frame(maxWidth: .infinity)
                 }
             }
         }
