@@ -2,8 +2,8 @@ import Foundation
 import Combine
 
 @MainActor
-final class SubscriptionStore: ObservableObject {
-    @Published private(set) var subscriptions: [Subscription] = []
+public final class SubscriptionStore: ObservableObject {
+    @Published private(set) var subscriptions: [AppSubscription] = []
 
     private let saveURL: URL
     private var cancellables = Set<AnyCancellable>()
@@ -62,7 +62,7 @@ final class SubscriptionStore: ObservableObject {
     func load() {
         do {
             let data = try Data(contentsOf: saveURL)
-            let decoded = try JSONDecoder().decode([Subscription].self, from: data)
+            let decoded = try JSONDecoder().decode([AppSubscription].self, from: data)
             self.subscriptions = decoded
         } catch {
             // Previously we populated sample data on first run; remove that so
@@ -71,7 +71,7 @@ final class SubscriptionStore: ObservableObject {
         }
     }
 
-    func save(_ subs: [Subscription]) {
+    func save(_ subs: [AppSubscription]) {
         do {
             let data = try JSONEncoder().encode(subs)
             try data.write(to: saveURL, options: [.atomic])
@@ -81,11 +81,11 @@ final class SubscriptionStore: ObservableObject {
     }
 
     // CRUD
-    func add(_ subscription: Subscription) {
+    func add(_ subscription: AppSubscription) {
         subscriptions.append(subscription)
     }
 
-    func update(_ subscription: Subscription) {
+    func update(_ subscription: AppSubscription) {
         guard let idx = subscriptions.firstIndex(of: subscription) else { return }
         subscriptions[idx] = subscription
     }
@@ -101,7 +101,7 @@ final class SubscriptionStore: ObservableObject {
     }
 
     // Convenience local removal by id
-    func remove(_ subscription: Subscription) {
+    func remove(_ subscription: AppSubscription) {
         subscriptions.removeAll { $0.id == subscription.id }
     }
 
@@ -220,7 +220,7 @@ final class SubscriptionStore: ObservableObject {
                     if let apiSubs = try? decoder.decode([APISubscription].self, from: data) {
                         // Map API model to local Subscription
                         let iso = ISO8601DateFormatter()
-                        let mapped: [Subscription] = apiSubs.map { api in
+                        let mapped: [AppSubscription] = apiSubs.map { api in
                             let uuid = UUID(uuidString: api.id) ?? UUID()
                             let price = Double(api.amount) ?? 0.0
                             let bp = (api.billingPeriod ?? "").lowercased()
@@ -240,7 +240,7 @@ final class SubscriptionStore: ObservableObject {
                                 }
                             }
                             let active = (api.status ?? "").lowercased() == "active"
-                            return Subscription(id: uuid, name: api.name, price: price, billingCycle: cycle, nextDueDate: nextDate, isActive: active)
+                            return AppSubscription(id: uuid, name: api.name, price: price, billingCycle: cycle, nextDueDate: nextDate, isActive: active)
                         }
 
                         await MainActor.run {
@@ -259,7 +259,7 @@ final class SubscriptionStore: ObservableObject {
                         }
 
                         let iso = ISO8601DateFormatter()
-                        var mappedFallback: [Subscription] = []
+                        var mappedFallback: [AppSubscription] = []
 
                         for dict in arr {
                             let idStr = dict["id"] as? String ?? UUID().uuidString
@@ -287,7 +287,7 @@ final class SubscriptionStore: ObservableObject {
                                 }
                             }
                             let active = (dict["status"] as? String ?? "").lowercased() == "active"
-                            mappedFallback.append(Subscription(id: uuid, name: name, price: price, billingCycle: cycle, nextDueDate: nextDate, isActive: active))
+                            mappedFallback.append(AppSubscription(id: uuid, name: name, price: price, billingCycle: cycle, nextDueDate: nextDate, isActive: active))
                         }
 
                         await MainActor.run {
@@ -316,7 +316,7 @@ final class SubscriptionStore: ObservableObject {
     }
 
     /// Delete a subscription on the server and remove it locally on success.
-    func deleteFromServer(_ subscription: Subscription) async throws {
+    func deleteFromServer(_ subscription: AppSubscription) async throws {
         // Avoid performing network/biometric operations while running inside Xcode previews
         if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {
             // In previews, just remove locally

@@ -1,17 +1,20 @@
 import Foundation
-import LocalAuthentication
+@preconcurrency import LocalAuthentication
 
-struct AuthResponse: Codable {
-    let token: String
-    let user: User
+// LAContext is not Sendable; mark it as @unchecked Sendable for use inside Task/@Sendable closures
+extension LAContext: @unchecked Sendable {}
+
+public struct AuthResponse: Codable {
+    public let token: String
+    public let user: User
 }
 
-struct User: Codable {
-    let id: String
-    let email: String
+public struct User: Codable {
+    public let id: String
+    public let email: String
 }
 
-enum AuthError: Error {
+public enum AuthError: Error {
     case invalidURL
     case serverError(String)
     case keychainError(OSStatus)
@@ -19,13 +22,13 @@ enum AuthError: Error {
     case biometricFailed(Error)
 }
 
-enum KeychainKeys {
-    static let service = "subscription-tracker"
-    static let account = "authToken"
-    static let presenceFlag = "hasAuthToken"
+public enum KeychainKeys {
+    public static let service = "subscription-tracker"
+    public static let account = "authToken"
+    public static let presenceFlag = "hasAuthToken"
 }
 
-final class AuthService {
+public final class AuthService {
     // In-memory cache of the token to allow immediate use right after login without
     // requiring a Keychain read or biometric prompt. This cache only lasts for the
     // lifetime of the process (exactly what we want for immediate fetches).
@@ -35,8 +38,18 @@ final class AuthService {
     // Serial queue to atomically create/check the retrieveTask
     private static let retrieveTaskQueue = DispatchQueue(label: "AuthService.retrieveTaskQueue")
 
-    static func authenticate(email: String, completion: @escaping (Result<AuthResponse, Error>) -> Void) {
-        let url = Config.backendHost.appendingPathComponent("api/auth")
+    public static func authenticate(email: String, completion: @escaping (Result<AuthResponse, Error>) -> Void) {
+        let backendHost: URL = {
+            if let url = Bundle.main.url(forResource: "Config", withExtension: "plist"),
+               let data = try? Data(contentsOf: url),
+               let dict = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any],
+               let v = dict["backend_host"] as? String,
+               let u = URL(string: v) {
+                return u
+            }
+            return URL(string: "https://hippl.site")!
+        }()
+        let url = backendHost.appendingPathComponent("api/auth")
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")

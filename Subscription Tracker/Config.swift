@@ -1,6 +1,6 @@
 import Foundation
 
-enum Config {
+public enum Config {
     private static let info: [String: Any] = {
         guard let url = Bundle.main.url(forResource: "Config", withExtension: "plist"),
               let data = try? Data(contentsOf: url),
@@ -11,7 +11,7 @@ enum Config {
         return dict
     }()
 
-    static var backendHost: URL {
+    public static var backendHost: URL {
         if let v = info["backend_host"] as? String, let url = URL(string: v) {
             return url
         }

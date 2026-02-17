@@ -1,5 +1,9 @@
-import SwiftUI
+#if canImport(UIKit)
 import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
+import SwiftUI
 
 struct AddSubscriptionView: View {
     @Environment(\.dismiss) private var dismiss

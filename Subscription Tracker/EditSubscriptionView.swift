@@ -1,10 +1,15 @@
 import SwiftUI
+
+#if canImport(UIKit)
 import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
 
 struct EditSubscriptionView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var store: SubscriptionStore
-    var subscription: Subscription
+    var subscription: AppSubscription
 
     @State private var name: String
     @State private var price: String
@@ -21,7 +26,7 @@ struct EditSubscriptionView: View {
         case price
     }
 
-    init(store: SubscriptionStore, subscription: Subscription) {
+    init(store: SubscriptionStore, subscription: AppSubscription) {
         self.store = store
         self.subscription = subscription
         _name = State(initialValue: subscription.name)
@@ -37,7 +42,6 @@ struct EditSubscriptionView: View {
                     TextField("Name", text: $name)
                         .focused($focusedField, equals: .name)
                     TextField("Price", text: $price)
-                        .keyboardType(.decimalPad)
                         .focused($focusedField, equals: .price)
                     Picker("Cycle", selection: $cycle) {
                         ForEach(BillingCycle.allCases) { c in
@@ -58,9 +62,7 @@ struct EditSubscriptionView: View {
                         focusedField = nil
 
                         Task {
-                            await MainActor.run {
-                                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                            }
+                            // Give time for focus update
                             try? await Task.sleep(nanoseconds: 80_000_000)
                             await saveTapped()
                         }
@@ -71,9 +73,7 @@ struct EditSubscriptionView: View {
                     Button("Cancel") {
                         focusedField = nil
                         Task {
-                            await MainActor.run {
-                                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                            }
+                            // Give time for focus update
                             try? await Task.sleep(nanoseconds: 50_000_000)
                             dismiss()
                         }
@@ -87,11 +87,6 @@ struct EditSubscriptionView: View {
             }
             .onDisappear {
                 focusedField = nil
-                Task {
-                    await MainActor.run {
-                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                    }
-                }
             }
         }
     }
@@ -163,9 +158,6 @@ struct EditSubscriptionView: View {
                         print("Refresh after edit failed: \(error)")
                     }
 
-                    await MainActor.run {
-                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                    }
                     try? await Task.sleep(nanoseconds: 50_000_000)
                     dismiss()
                     return
@@ -183,6 +175,5 @@ struct EditSubscriptionView: View {
 }
 
 #Preview {
-    EditSubscriptionView(store: SubscriptionStore(), subscription: Subscription(name: "Test", price: 9.99, billingCycle: .monthly, nextDueDate: Date()))
+    EditSubscriptionView(store: SubscriptionStore(), subscription: AppSubscription(name: "Test", price: 9.99, billingCycle: .monthly, nextDueDate: Date()))
 }
-
