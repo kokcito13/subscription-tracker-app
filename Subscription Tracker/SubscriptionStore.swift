@@ -13,6 +13,33 @@ final class SubscriptionStore: ObservableObject {
     // keep server data in local storage).
     private var persistChanges: Bool = true
 
+    // Added: shared currency formatter for presenting totals
+    private static let currencyFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .currency
+        f.maximumFractionDigits = 2
+        f.minimumFractionDigits = 2
+        f.locale = Locale.current
+        return f
+    }()
+
+    // Added: computed totals
+    var totalMonthly: Double {
+        subscriptions.reduce(0.0) { $0 + $1.monthlyAmount }
+    }
+
+    var totalYearly: Double {
+        subscriptions.reduce(0.0) { $0 + $1.yearlyAmount }
+    }
+
+    var totalMonthlyFormatted: String {
+        SubscriptionStore.currencyFormatter.string(from: NSNumber(value: totalMonthly)) ?? String(format: "%.2f", totalMonthly)
+    }
+
+    var totalYearlyFormatted: String {
+        SubscriptionStore.currencyFormatter.string(from: NSNumber(value: totalYearly)) ?? String(format: "%.2f", totalYearly)
+    }
+
     init(filename: String = "subscriptions.json") {
         let fm = FileManager.default
         let docs = fm.urls(for: .documentDirectory, in: .userDomainMask).first!

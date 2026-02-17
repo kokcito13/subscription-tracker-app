@@ -41,6 +41,27 @@ struct ContentView: View {
                                 .buttonStyle(.bordered)
                         }
 
+                        // Added: Summary stats row
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text("Monthly:")
+                                    .font(.headline)
+                                Spacer()
+                                Text(subs.totalMonthlyFormatted)
+                                    .font(.headline)
+                            }
+                            HStack {
+                                Text("Yearly:")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text(subs.totalYearlyFormatted)
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .padding(.vertical, 6)
+
                         if loadingSubscriptions {
                             ProgressView("Loading subscriptions...")
                         } else if let err = subsError {
