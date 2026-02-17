@@ -73,6 +73,11 @@ final class SubscriptionStore: ObservableObject {
         }
     }
 
+    // Convenience local removal by id
+    func remove(_ subscription: Subscription) {
+        subscriptions.removeAll { $0.id == subscription.id }
+    }
+
     // MARK: - Server sync
 
     private struct APISubscription: Codable {
@@ -281,6 +286,46 @@ final class SubscriptionStore: ObservableObject {
         }
 
         return try await taskToAwait.value
+    }
+
+    /// Delete a subscription on the server and remove it locally on success.
+    func deleteFromServer(_ subscription: Subscription) async throws {
+        // Avoid performing network/biometric operations while running inside Xcode previews
+        if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" {
+            // In previews, just remove locally
+            await MainActor.run { self.remove(subscription) }
+            return
+        }
+
+        // Ensure we have a token in Keychain first
+        guard AuthService.hasTokenInKeychain() else {
+            throw NSError(domain: "SubscriptionStore", code: -1, userInfo: [NSLocalizedDescriptionKey: "No auth token found in Keychain"])
+        }
+
+        // Retrieve token (may prompt biometric)
+        let token = try await AuthService.retrieveToken()
+
+        // Build URL: DELETE /v1/subscriptions/{id}
+        var url = Config.backendHost
+        url.appendPathComponent("v1")
+        url.appendPathComponent("subscriptions")
+        url.appendPathComponent(subscription.id.uuidString)
+
+        var req = URLRequest(url: url)
+        req.httpMethod = "DELETE"
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await URLSession.shared.data(for: req)
+        if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+            let body = String(data: data, encoding: .utf8) ?? "<non-text>"
+            let msg = "Request to \(url.absoluteString) failed with status \(http.statusCode): \(body)"
+            throw NSError(domain: "SubscriptionStore", code: http.statusCode, userInfo: [NSLocalizedDescriptionKey: msg])
+        }
+
+        // Success - remove locally
+        await MainActor.run {
+            self.remove(subscription)
+        }
     }
 
     /// Clear in-memory subscriptions (keeps the setter encapsulated).

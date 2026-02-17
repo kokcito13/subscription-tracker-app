@@ -20,6 +20,11 @@ struct ContentView: View {
     // Focus state for keyboard management
     @FocusState private var emailFieldFocused: Bool
 
+    // Deletion state
+    @State private var deletionCandidate: Subscription?
+    @State private var isDeleting: Bool = false
+    @State private var showDeleteConfirmation: Bool = false
+
     var body: some View {
         ZStack {
             Color.white
@@ -32,10 +37,8 @@ struct ContentView: View {
                             Text("Hello user")
                                 .font(.title)
                             Spacer()
-                            Button("Logout") {
-                                auth.logout()
-                            }
-                            .buttonStyle(.bordered)
+                            Button("Logout") { auth.logout() }
+                                .buttonStyle(.bordered)
                         }
 
                         if loadingSubscriptions {
@@ -47,20 +50,49 @@ struct ContentView: View {
                             Text("No subscriptions")
                                 .foregroundColor(.secondary)
                         } else {
-                            List(subs.subscriptions) { s in
-                                VStack(alignment: .leading) {
-                                    Text(s.name)
-                                        .font(.headline)
-                                    HStack {
-                                        Text(String(format: "%.2f %@", s.price, ""))
-                                            .font(.subheadline)
+                            List {
+                                ForEach(subs.subscriptions) { s in
+                                    HStack(alignment: .center) {
+                                        VStack(alignment: .leading) {
+                                            Text(s.name).font(.headline)
+                                            HStack {
+                                                Text(String(format: "%.2f %@", s.price, ""))
+                                                    .font(.subheadline)
+                                                Spacer()
+                                                Text(s.nextDueDate, style: .date)
+                                                    .font(.caption)
+                                                    .foregroundColor(.secondary)
+                                            }
+                                        }
+                                        .padding(.vertical, 6)
+
                                         Spacer()
-                                        Text(s.nextDueDate, style: .date)
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
+
+                                        if isDeleting && deletionCandidate?.id == s.id {
+                                            ProgressView().padding(.leading, 8)
+                                        } else {
+                                            Button(action: {
+                                                print("[ContentView] delete tapped for \(s.name) id=\(s.id)")
+                                                deletionCandidate = s
+                                                showDeleteConfirmation = true
+                                            }) {
+                                                Image(systemName: "trash")
+                                                    .foregroundColor(.red)
+                                            }
+                                            .buttonStyle(.plain)
+                                            .padding(.leading, 8)
+                                            .accessibilityLabel("Delete \(s.name)")
+                                        }
+                                    }
+                                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                        Button(role: .destructive) {
+                                            deletionCandidate = s
+                                            showDeleteConfirmation = true
+                                        } label: {
+                                            Label("Delete", systemImage: "trash")
+                                        }
                                     }
                                 }
-                                .padding(.vertical, 6)
                             }
                             .listStyle(.plain)
                         }
@@ -78,28 +110,77 @@ struct ContentView: View {
                         }
                     }
                 }
-                .onAppear {
-                    Task {
-                        if !hasFetchedSubscriptions {
-                            await fetchSubscriptionsIfNeeded()
-                        }
-                    }
-                }
+                .onAppear { Task { if !hasFetchedSubscriptions { await fetchSubscriptionsIfNeeded() } } }
                 .onChange(of: auth.isAuthenticated) { newValue in
                     if newValue {
-                        Task {
-                            if !hasFetchedSubscriptions {
-                                await fetchSubscriptionsIfNeeded()
-                            }
-                        }
+                        Task { if !hasFetchedSubscriptions { await fetchSubscriptionsIfNeeded() } }
                     } else {
-                        // Clear subscriptions when logged out
                         subs.clear()
                         hasFetchedSubscriptions = false
                     }
                 }
                 .sheet(isPresented: $showingAddSheet) {
                     AddSubscriptionView(store: subs)
+                }
+                // Small debug banner to show the selected candidate immediately
+                if let cand = deletionCandidate {
+                    HStack {
+                        Spacer()
+                        Text("Delete: \(cand.name)")
+                            .padding(8)
+                            .background(Color.yellow.opacity(0.9))
+                            .cornerRadius(8)
+                            .padding()
+                    }
+                    .transition(.move(edge: .top))
+                }
+                // Inline overlay dialog (global) - placed after debug banner to ensure it sits on top
+                if showDeleteConfirmation {
+                    Color.black.opacity(0.4).ignoresSafeArea().transition(.opacity)
+
+                    VStack(spacing: 16) {
+                        Text("Do you real want to delete \(deletionCandidate?.name ?? "this subscription")?")
+                            .font(.headline)
+                            .multilineTextAlignment(.center)
+                            .padding()
+
+                        HStack(spacing: 12) {
+                            Button(action: {
+                                deletionCandidate = nil
+                                showDeleteConfirmation = false
+                            }) {
+                                Text("Cancel").frame(minWidth: 100)
+                            }
+                            .buttonStyle(.bordered)
+
+                            Button(role: .destructive) {
+                                Task {
+                                    guard let subscription = deletionCandidate else { return }
+                                    print("[ContentView] confirm delete for \(subscription.name) id=\(subscription.id)")
+                                    isDeleting = true
+                                    do {
+                                        try await subs.deleteFromServer(subscription)
+                                        print("[ContentView] delete completed for \(subscription.name)")
+                                    } catch {
+                                        subsError = "Failed to delete: \(error.localizedDescription)"
+                                        print("[ContentView] delete failed: \(error)")
+                                    }
+                                    isDeleting = false
+                                    deletionCandidate = nil
+                                    showDeleteConfirmation = false
+                                }
+                            } label: {
+                                Text("Delete").frame(minWidth: 100)
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
+                        .padding(.bottom, 10)
+                    }
+                    .padding(20)
+                    .background(.ultraThinMaterial)
+                    .cornerRadius(12)
+                    .padding(40)
+                    .zIndex(1)
                 }
             } else {
                 HStack(spacing: 12) {
@@ -111,12 +192,9 @@ struct ContentView: View {
                         .focused($emailFieldFocused)
 
                     Button("Login / Register") {
-                        // Dismiss keyboard using SwiftUI FocusState instead of sending a global action
                         emailFieldFocused = false
-
                         Task {
-                            // small delay to allow keyboard to dismiss and layout to settle
-                            try? await Task.sleep(nanoseconds: 100_000_000) // 0.1s
+                            try? await Task.sleep(nanoseconds: 100_000_000)
                             await auth.login()
                         }
                     }
@@ -132,29 +210,12 @@ struct ContentView: View {
     }
 
     private func fetchSubscriptionsIfNeeded() async {
-        // Only attempt to fetch if authenticated flag is true and a token exists in Keychain
         guard auth.isAuthenticated else { return }
-
-        // mark we've started fetch to avoid duplicate attempts
         hasFetchedSubscriptions = true
-
-        // Show loading state
-        DispatchQueue.main.async {
-            self.loadingSubscriptions = true
-            self.subsError = nil
-        }
-
-        do {
-            try await subs.refreshFromServer()
-        } catch {
-            DispatchQueue.main.async {
-                self.subsError = error.localizedDescription
-            }
-        }
-
-        DispatchQueue.main.async {
-            self.loadingSubscriptions = false
-        }
+        DispatchQueue.main.async { self.loadingSubscriptions = true; self.subsError = nil }
+        do { try await subs.refreshFromServer() }
+        catch { DispatchQueue.main.async { self.subsError = error.localizedDescription } }
+        DispatchQueue.main.async { self.loadingSubscriptions = false }
     }
 }
 
