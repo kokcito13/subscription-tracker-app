@@ -114,7 +114,7 @@ struct SpendingSummaryCards: View {
                     SpendingSummaryCard(
                         title: "Monthly Spending",
                         value: monthly,
-                        secondaryValue: "CHF \(String(format: "%.2f", Double(monthly.filter { "0123456789.".contains($0) }) ?? 0.0 / 12))",
+                        secondaryValue: "Per month",
                         icon: "sun.max.fill",
                         variant: .monthly
                     )
@@ -122,7 +122,7 @@ struct SpendingSummaryCards: View {
                     SpendingSummaryCard(
                         title: "Yearly Spending",
                         value: yearly,
-                        secondaryValue: "CHF \(String(format: "%.2f", (Double(yearly.filter { "0123456789.".contains($0) }) ?? 0.0) * 12))",
+                        secondaryValue: "Total per year",
                         icon: "calendar",
                         variant: .yearly
                     )
@@ -133,7 +133,7 @@ struct SpendingSummaryCards: View {
                     SpendingSummaryCard(
                         title: "Monthly Spending",
                         value: monthly,
-                        secondaryValue: "Per month average",
+                        secondaryValue: "Per month",
                         icon: "sun.max.fill",
                         variant: .monthly
                     )
@@ -142,7 +142,7 @@ struct SpendingSummaryCards: View {
                     SpendingSummaryCard(
                         title: "Yearly Spending",
                         value: yearly,
-                        secondaryValue: "Projected total",
+                        secondaryValue: "Total per year",
                         icon: "calendar",
                         variant: .yearly
                     )
