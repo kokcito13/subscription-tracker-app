@@ -43,12 +43,14 @@ struct EditSubscriptionView: View {
                         .focused($focusedField, equals: .name)
                     TextField("Price", text: $price)
                         .focused($focusedField, equals: .price)
-                    Picker("Cycle", selection: $cycle) {
-                        ForEach(BillingCycle.allCases) { c in
-                            Text(c.displayName).tag(c)
-                        }
-                    }
                     DatePicker("Next due", selection: $date, displayedComponents: .date)
+                }
+                
+                Section(header: Text("Billing Cycle")) {
+                    BillingCycleSelector(selectedCycle: $cycle)
+                        .frame(height: 60)
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
                 }
 
                 if isSubmitting {

@@ -33,12 +33,14 @@ struct AddSubscriptionView: View {
                     TextField("Price", text: $price)
                         .keyboardType(.decimalPad)
                         .focused($focusedField, equals: .price)
-                    Picker("Cycle", selection: $cycle) {
-                        ForEach(BillingCycle.allCases) { c in
-                            Text(c.displayName).tag(c)
-                        }
-                    }
                     DatePicker("Next due", selection: $date, displayedComponents: .date)
+                }
+                
+                Section(header: Text("Billing Cycle")) {
+                    BillingCycleSelector(selectedCycle: $cycle)
+                        .frame(height: 60)
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
                 }
 
                 if isSubmitting {
