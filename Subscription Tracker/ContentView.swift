@@ -17,6 +17,9 @@ struct ContentView: View {
     // Presentation state for Add sheet
     @State private var showingAddSheet: Bool = false
 
+    // State for editing a single subscription
+    @State private var editingSubscription: Subscription?
+
     // Focus state for keyboard management
     @FocusState private var emailFieldFocused: Bool
 
@@ -92,6 +95,16 @@ struct ContentView: View {
                                         if isDeleting && deletionCandidate?.id == s.id {
                                             ProgressView().padding(.leading, 8)
                                         } else {
+                                            // Edit button
+                                            Button(action: {
+                                                editingSubscription = s
+                                            }) {
+                                                Image(systemName: "pencil")
+                                            }
+                                            .buttonStyle(.plain)
+                                            .padding(.leading, 8)
+                                            .accessibilityLabel("Edit \(s.name)")
+
                                             Button(action: {
                                                 print("[ContentView] delete tapped for \(s.name) id=\(s.id)")
                                                 deletionCandidate = s
@@ -142,6 +155,9 @@ struct ContentView: View {
                 }
                 .sheet(isPresented: $showingAddSheet) {
                     AddSubscriptionView(store: subs)
+                }
+                .sheet(item: $editingSubscription) { sub in
+                    EditSubscriptionView(store: subs, subscription: sub)
                 }
                 // Small debug banner to show the selected candidate immediately
                 if let cand = deletionCandidate {

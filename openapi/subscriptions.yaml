@@ -1,0 +1,526 @@
+openapi: 3.0.3
+info:
+  title: Subscription API
+  version: 1.0.0
+  description: API for managing user subscriptions (create, list, view, update, cancel, pause, resume, delete)
+servers:
+  - url: http://localhost
+    description: Local server
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required: [message]
+      example:
+        message: Unauthorized
+    ValidationErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+      example:
+        message: Validation failed
+        errors:
+          - field: name
+            message: Name cannot be blank.
+    CreateSubscriptionRequest:
+      type: object
+      required: [name, amount, currency, billingPeriod, nextBillingDate]
+      properties:
+        name:
+          type: string
+          maxLength: 120
+          example: "My Subscription"
+        amount:
+          type: string
+          description: "Decimal amount as string, up to 2 decimal places"
+          pattern: '^\\d+(\\.\\d{1,2})?$'
+          example: "12.50"
+        currency:
+          type: string
+          description: "ISO-4217 currency code (3 uppercase letters)"
+          minLength: 3
+          maxLength: 3
+          example: "USD"
+        billingPeriod:
+          type: string
+          enum: [weekly, monthly, yearly]
+          example: monthly
+        billingDayOfMonth:
+          type: integer
+          minimum: 1
+          maximum: 31
+          nullable: true
+          example: 15
+        billingMonthOfYear:
+          type: integer
+          minimum: 1
+          maximum: 12
+          nullable: true
+          example: 6
+        nextBillingDate:
+          type: string
+          format: date
+          example: "2026-03-01"
+        category:
+          type: string
+          enum: [ai, kids, streaming, work, other]
+          nullable: true
+          example: streaming
+      description: |
+        Conditional rules:
+        - weekly: billingDayOfMonth and billingMonthOfYear MUST NOT be set.
+        - monthly: billingDayOfMonth MUST be set; billingMonthOfYear MUST NOT be set.
+        - yearly: both billingDayOfMonth and billingMonthOfYear MUST be set.
+    UpdateSubscriptionRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 120
+          example: "Updated subscription"
+        amount:
+          type: string
+          pattern: '^\\d+(\\.\\d{1,2})?$'
+          example: "9.99"
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+          example: "EUR"
+        billingPeriod:
+          type: string
+          enum: [weekly, monthly, yearly]
+          example: weekly
+        billingDayOfMonth:
+          type: integer
+          minimum: 1
+          maximum: 31
+          nullable: true
+          example: 1
+        billingMonthOfYear:
+          type: integer
+          minimum: 1
+          maximum: 12
+          nullable: true
+          example: 12
+        nextBillingDate:
+          type: string
+          format: date
+          example: "2026-04-01"
+        category:
+          type: string
+          enum: [ai, kids, streaming, work, other]
+          nullable: true
+          example: work
+      description: All fields are optional; billingPeriod has the same conditional rules as CreateSubscriptionRequest.
+    SubscriptionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+        name:
+          type: string
+          example: "My Subscription"
+        amount:
+          type: string
+          example: "12.50"
+        currency:
+          type: string
+          example: "USD"
+        billingPeriod:
+          type: string
+          enum: [weekly, monthly, yearly]
+          example: monthly
+        billingDayOfMonth:
+          type: integer
+          nullable: true
+          example: 15
+        billingMonthOfYear:
+          type: integer
+          nullable: true
+          example: 6
+        nextBillingDate:
+          type: string
+          format: date
+          example: "2026-03-01"
+        category:
+          type: string
+          nullable: true
+          enum: [ai, kids, streaming, work, other]
+          example: streaming
+        status:
+          type: string
+          enum: [active, paused, canceled]
+          example: active
+        createdAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-02-01 12:00:00"
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-02-05 12:00:00"
+      required: [id, name, amount, currency, billingPeriod, nextBillingDate, status]
+    StatusResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [active, paused, canceled]
+          example: canceled
+      required: [status]
+    # Auth schemas for /api/auth
+    AuthRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+      description: Request a token for the given email; a token will be returned (200) or a validation error (400).
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          example: "e3a1f5... (hex 64 chars)"
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+              example: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+            email:
+              type: string
+              format: email
+              example: user@example.com
+      required: [token, user]
+paths:
+  /v1/subscriptions:
+    post:
+      summary: Create a subscription
+      tags: [Subscriptions]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSubscriptionRequest'
+            examples:
+              create:
+                value:
+                  name: "Netflix"
+                  amount: "9.99"
+                  currency: "USD"
+                  billingPeriod: "monthly"
+                  billingDayOfMonth: 1
+                  nextBillingDate: "2026-03-01"
+                  category: "streaming"
+      responses:
+        '201':
+          description: Subscription created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      summary: List subscriptions for authenticated user
+      tags: [Subscriptions]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [active, paused, canceled]
+          description: Filter by status
+        - in: query
+          name: category
+          schema:
+            type: string
+            enum: [ai, kids, streaming, work, other]
+          description: Filter by category
+      responses:
+        '200':
+          description: List of subscriptions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SubscriptionResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/subscriptions/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Subscription UUID
+    get:
+      summary: Get a subscription by id
+      tags: [Subscriptions]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Subscription details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      summary: Update a subscription
+      tags: [Subscriptions]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSubscriptionRequest'
+            examples:
+              patch:
+                value:
+                  name: "Updated name"
+                  amount: "14.99"
+      responses:
+        '200':
+          description: Updated subscription
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      summary: Delete a subscription
+      tags: [Subscriptions]
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Deleted successfully
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/subscriptions/{id}/cancel:
+    post:
+      summary: Cancel a subscription
+      tags: [Subscriptions]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Subscription canceled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/subscriptions/{id}/pause:
+    post:
+      summary: Pause a subscription
+      tags: [Subscriptions]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Subscription paused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/subscriptions/{id}/resume:
+    post:
+      summary: Resume a subscription
+      tags: [Subscriptions]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Subscription resumed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/auth:
+    post:
+      summary: Request an API token by email (create or retrieve user)
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRequest'
+            examples:
+              example:
+                value:
+                  email: user@example.com
+      responses:
+        '200':
+          description: Token issued (or existing token returned)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Bad request (validation)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+security:
+  - bearerAuth: []
+tags:
+  - name: Subscriptions
+    description: Operations on user subscriptions
+  - name: Auth
+    description: Authentication endpoints (email -> token)
