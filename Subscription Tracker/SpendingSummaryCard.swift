@@ -92,12 +92,14 @@ struct SpendingSummaryCard: View {
         .background(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(Color.white.opacity(0.65))
+                .background(.ultraThinMaterial.opacity(0.5))
                 .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 8)
                 .overlay(
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
                         .strokeBorder(Color.white.opacity(0.4), lineWidth: 1)
                 )
         )
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 }
 
