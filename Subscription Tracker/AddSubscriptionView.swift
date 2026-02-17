@@ -38,7 +38,7 @@ struct AddSubscriptionView: View {
                 
                 Section(header: Text("Billing Cycle")) {
                     BillingCycleSelector(selectedCycle: $cycle)
-                        .frame(height: 60)
+                        .frame(height: BillingCycleSelector.cardHeight)
                         .listRowInsets(EdgeInsets())
                         .listRowBackground(Color.clear)
                 }

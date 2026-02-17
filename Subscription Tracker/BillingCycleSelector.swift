@@ -11,6 +11,8 @@ import SwiftUI
 struct BillingCycleSelector: View {
     @Binding var selectedCycle: BillingCycle
     
+    static let cardHeight: CGFloat = 60
+    
     var body: some View {
         GeometryReader { geometry in
             // Use VStack on very narrow screens (< 300px), otherwise HStack
@@ -37,7 +39,7 @@ struct BillingCycleSelector: View {
                 }
             }
         }
-        .frame(height: 60)
+        .frame(height: BillingCycleSelector.cardHeight)
     }
 }
 
@@ -58,7 +60,7 @@ struct CycleCard: View {
                     .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 60)
+            .frame(height: BillingCycleSelector.cardHeight)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .background(
@@ -91,7 +93,7 @@ struct CycleCard: View {
 #Preview {
     VStack {
         BillingCycleSelector(selectedCycle: .constant(.monthly))
-            .frame(height: 60)
+            .frame(height: BillingCycleSelector.cardHeight)
             .padding()
         
         Spacer()
