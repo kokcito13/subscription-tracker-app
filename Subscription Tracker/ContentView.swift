@@ -28,8 +28,12 @@ struct ContentView: View {
     @State private var isDeleting: Bool = false
     @State private var showDeleteConfirmation: Bool = false
 
+    // Profile navigation state
+    @State private var showingProfile: Bool = false
+
 
     var body: some View {
+        NavigationStack {
         ZStack {
             // Background: light gradient with soft vignette / blobs
             LinearGradient(colors: [Color.primary.opacity(0.02), Color.gray.opacity(0.1)], startPoint: .topLeading, endPoint: .bottomTrailing)
@@ -70,7 +74,7 @@ struct ContentView: View {
                     Spacer()
 
                     // Profile button
-                    Button(action: { /* Profile action placeholder */ }) {
+                    Button(action: { showingProfile = true }) {
                         Image(systemName: "person.circle.fill")
                             .resizable()
                             .scaledToFit()
@@ -173,6 +177,10 @@ struct ContentView: View {
             .sheet(item: $editingSubscription) { sub in
                 EditSubscriptionView(store: subs, subscription: sub)
             }
+            .sheet(isPresented: $showingProfile) {
+                ProfileView()
+                    .environmentObject(auth)
+            }
 
             // Delete confirmation overlay
             if showDeleteConfirmation {
@@ -223,6 +231,7 @@ struct ContentView: View {
         }
         .alert(isPresented: Binding(get: { auth.errorMessage != nil || subsError != nil }, set: { if !$0 { auth.errorMessage = nil; subsError = nil } })) {
             Alert(title: Text("Error"), message: Text(auth.errorMessage ?? subsError ?? ""), dismissButton: .default(Text("OK")))
+        }
         }
     }
 
