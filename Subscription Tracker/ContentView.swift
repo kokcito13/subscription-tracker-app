@@ -90,8 +90,9 @@ struct ContentView: View {
 
                 // Summary cards (only shown when authenticated)
                 if auth.isAuthenticated {
-                    AdaptiveSummaryView(monthly: subs.totalMonthlyFormatted, yearly: subs.totalYearlyFormatted)
+                    SpendingSummaryCards(monthly: subs.totalMonthlyFormatted, yearly: subs.totalYearlyFormatted)
                         .padding(.horizontal, 20)
+                        .padding(.top, 14)
                 }
 
                 // Section title + add button (only shown when authenticated)
@@ -273,63 +274,6 @@ struct ContentView: View {
 }
 
 // MARK: - Supporting Views and Types
-
-struct AdaptiveSummaryView: View {
-    var monthly: String
-    var yearly: String
-
-    var body: some View {
-        HStack(spacing: 12) {
-            SummaryCard(title: "Monthly Spending", value: monthly, subtitle: "Compared to last month", iconName: "creditcard.fill")
-            SummaryCard(title: "Yearly Spending", value: yearly, subtitle: "Projected total", iconName: "calendar")
-        }
-    }
-}
-
-struct SummaryCard: View {
-    var title: String
-    var value: String
-    var subtitle: String?
-    var iconName: String
-
-    var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.white.opacity(0.9))
-                    .frame(width: 56, height: 56)
-                    .shadow(color: Color.black.opacity(0.06), radius: 6, x: 0, y: 4)
-
-                Image(systemName: iconName)
-                    .foregroundColor(Color.blue)
-                    .font(.system(size: 22, weight: .semibold))
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
-                Text(value)
-                    .font(.title2).fontWeight(.bold)
-                    .foregroundColor(.primary)
-
-                if let subtitle = subtitle {
-                    Text(subtitle)
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
-                }
-            }
-
-            Spacer()
-        }
-        .padding(14)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.primary.opacity(0.06), lineWidth: 1))
-        .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 6)
-    }
-}
 
 struct SubscriptionCard: View {
     var iconName: String
