@@ -73,35 +73,41 @@ struct ContentView: View {
 
                     Spacer()
 
-                    // Profile button
-                    Button(action: { showingProfile = true }) {
-                        Image(systemName: "person.circle.fill")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 44, height: 44)
-                            .foregroundStyle(LinearGradient(colors: [Color.blue, Color.purple], startPoint: .topLeading, endPoint: .bottomTrailing))
+                    // Profile button (only shown when authenticated)
+                    if auth.isAuthenticated {
+                        Button(action: { showingProfile = true }) {
+                            Image(systemName: "person.circle.fill")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 44, height: 44)
+                                .foregroundStyle(LinearGradient(colors: [Color.blue, Color.purple], startPoint: .topLeading, endPoint: .bottomTrailing))
+                        }
+                        .accessibilityLabel("Profile")
                     }
-                    .accessibilityLabel("Profile")
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
 
-                // Summary cards
-                AdaptiveSummaryView(monthly: subs.totalMonthlyFormatted, yearly: subs.totalYearlyFormatted)
-                    .padding(.horizontal, 20)
-
-                // Section title + add button
-                HStack(alignment: .center) {
-                    Text("My Subscriptions")
-                        .font(.title2).fontWeight(.semibold)
-                        .foregroundColor(Color.primary)
-
-                    Spacer()
-
-                    FloatingAddButton(action: { showingAddSheet = true })
+                // Summary cards (only shown when authenticated)
+                if auth.isAuthenticated {
+                    AdaptiveSummaryView(monthly: subs.totalMonthlyFormatted, yearly: subs.totalYearlyFormatted)
+                        .padding(.horizontal, 20)
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 4)
+
+                // Section title + add button (only shown when authenticated)
+                if auth.isAuthenticated {
+                    HStack(alignment: .center) {
+                        Text("My Subscriptions")
+                            .font(.title2).fontWeight(.semibold)
+                            .foregroundColor(Color.primary)
+
+                        Spacer()
+
+                        FloatingAddButton(action: { showingAddSheet = true })
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 4)
+                }
 
                 // Content
                 if auth.isAuthenticated {
