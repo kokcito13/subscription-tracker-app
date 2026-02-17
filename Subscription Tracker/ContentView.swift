@@ -34,7 +34,7 @@ struct ContentView: View {
 
     var body: some View {
         NavigationStack {
-        ZStack {
+            ZStack {
             // Background: light gradient with soft vignette / blobs
             LinearGradient(colors: [Color.primary.opacity(0.02), Color.gray.opacity(0.1)], startPoint: .topLeading, endPoint: .bottomTrailing)
                 .ignoresSafeArea()
