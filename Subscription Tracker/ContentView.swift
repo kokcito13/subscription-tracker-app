@@ -243,17 +243,21 @@ struct ContentView: View {
 
     // MARK: - Helpers
     private var greetingText: String {
-        // dynamic name if available
-        let name = "User"
-        // You could pull from AuthStore if it had a displayName
-        return "Good morning, \(name)"
+        let hour = Calendar.current.component(.hour, from: Date())
+        let greeting: String
+        switch hour {
+        case 5..<12:  greeting = "Good morning"
+        case 12..<18: greeting = "Good day"
+        default:      greeting = "Good evening"
+        }
+        return greeting
     }
 
     private func priceText(for s: AppSubscription) -> String {
         if s.billingPeriod == .yearly {
-            return "CHF \(String(format: "%.2f", s.price)) / year"
+            return "\(String(format: "%.2f", s.price)) / year"
         }
-        return "CHF \(String(format: "%.2f", s.price)) / month"
+        return "\(String(format: "%.2f", s.price)) / month"
     }
 
     private func renewText(for s: AppSubscription) -> String {
@@ -380,59 +384,61 @@ struct SubscriptionCard: View {
 
     var body: some View {
         HStack(spacing: 12) {
+            // Icon
             ZStack {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.gray.opacity(0.1))
-                    .frame(width: 56, height: 56)
-
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color.blue.opacity(0.1))
+                    .frame(width: 40, height: 40)
                 Image(systemName: iconName)
-                    .font(.system(size: 24))
-                    .foregroundColor(Color.blue)
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundColor(.blue)
             }
 
-            VStack(alignment: .leading, spacing: 6) {
-                Text(name)
-                    .font(.headline)
-                    .foregroundColor(.primary)
-
+            // Price → Name → Renew
+            VStack(alignment: .leading, spacing: 1) {
                 Text(priceText)
-                    .font(.subheadline)
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
                     .foregroundColor(.primary)
-
-                Text(renewText)
-                    .font(.footnote)
+                    .lineLimit(1)
+                Text(name)
+                    .font(.subheadline)
                     .foregroundColor(.secondary)
+                    .lineLimit(1)
+                Text(renewText)
+                    .font(.caption2)
+                    .foregroundColor(.secondary.opacity(0.7))
+                    .lineLimit(1)
             }
 
-            Spacer()
+            Spacer(minLength: 4)
 
-            HStack(spacing: 8) {
+            // Actions
+            VStack(spacing: 2) {
                 Button(action: onEdit) {
                     Image(systemName: "pencil")
-                        .frame(width: 44, height: 44)
-                        .background(Color.white.opacity(0.6))
-                        .clipShape(Circle())
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .frame(width: 30, height: 30)
                 }
                 .buttonStyle(PlainButtonStyle())
                 .accessibilityLabel("Edit \(name)")
 
                 Button(action: onDelete) {
                     Image(systemName: "trash")
-                        .foregroundColor(.red)
-                        .frame(width: 44, height: 44)
-                        .background(Color.white.opacity(0.6))
-                        .clipShape(Circle())
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.red.opacity(0.7))
+                        .frame(width: 30, height: 30)
                 }
                 .buttonStyle(PlainButtonStyle())
                 .accessibilityLabel("Delete \(name)")
             }
         }
-        .padding(14)
-        .background(Color.white.opacity(0.8))
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.primary.opacity(0.05), lineWidth: 1))
-        .shadow(color: Color.black.opacity(0.06), radius: 12, x: 0, y: 8)
-        .onTapGesture { /* could open details */ }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.primary.opacity(0.05), lineWidth: 1))
+        .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 3)
     }
 }
 
