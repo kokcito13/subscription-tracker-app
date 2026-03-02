@@ -16,10 +16,9 @@ public final class SubscriptionStore: ObservableObject {
     // Added: shared currency formatter for presenting totals
     private static let currencyFormatter: NumberFormatter = {
         let f = NumberFormatter()
-        f.numberStyle = .currency
+        f.numberStyle = .decimal
         f.maximumFractionDigits = 2
         f.minimumFractionDigits = 2
-        f.locale = Locale.current
         return f
     }()
 

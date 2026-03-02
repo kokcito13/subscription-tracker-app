@@ -278,21 +278,20 @@ struct AdaptiveSummaryView: View {
     var monthly: String
     var yearly: String
 
-    @Environment(\.horizontalSizeClass) var hSize
-
     var body: some View {
-        Group {
-            if hSize == .compact {
-                VStack(spacing: 12) {
-                    SummaryCard(title: "Monthly Spending", value: monthly, subtitle: "Compared to last month", iconName: "creditcard.fill")
-                    SummaryCard(title: "Yearly Spending", value: yearly, subtitle: "Projected total", iconName: "calendar")
-                }
-            } else {
-                HStack(spacing: 12) {
-                    SummaryCard(title: "Monthly Spending", value: monthly, subtitle: "Compared to last month", iconName: "creditcard.fill")
-                    SummaryCard(title: "Yearly Spending", value: yearly, subtitle: "Projected total", iconName: "calendar")
-                }
-            }
+        HStack(spacing: 12) {
+            SummaryCard(
+                title: "Monthly",
+                value: monthly,
+                accent: [Color(hex: "4F8EF7"), Color(hex: "7B5EF8")],
+                icon: "creditcard.fill"
+            )
+            SummaryCard(
+                title: "Yearly",
+                value: yearly,
+                accent: [Color(hex: "F7934F"), Color(hex: "F85E9A")],
+                icon: "calendar"
+            )
         }
     }
 }
@@ -300,45 +299,74 @@ struct AdaptiveSummaryView: View {
 struct SummaryCard: View {
     var title: String
     var value: String
-    var subtitle: String?
-    var iconName: String
+    var accent: [Color]
+    var icon: String
 
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
+        HStack(spacing: 10) {
+            // Accent icon bubble
             ZStack {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.white.opacity(0.9))
-                    .frame(width: 56, height: 56)
-                    .shadow(color: Color.black.opacity(0.06), radius: 6, x: 0, y: 4)
-
-                Image(systemName: iconName)
-                    .foregroundColor(Color.blue)
-                    .font(.system(size: 22, weight: .semibold))
+                Circle()
+                    .fill(LinearGradient(colors: accent, startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .frame(width: 36, height: 36)
+                Image(systemName: icon)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.white)
             }
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 1) {
                 Text(title)
-                    .font(.caption)
+                    .font(.caption2)
+                    .fontWeight(.medium)
                     .foregroundColor(.secondary)
+                    .textCase(.uppercase)
+                    .tracking(0.5)
 
                 Text(value)
-                    .font(.title2).fontWeight(.bold)
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
                     .foregroundColor(.primary)
-
-                if let subtitle = subtitle {
-                    Text(subtitle)
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
-                }
+                    .minimumScaleFactor(0.7)
+                    .lineLimit(1)
             }
 
-            Spacer()
+            Spacer(minLength: 0)
         }
-        .padding(14)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.primary.opacity(0.06), lineWidth: 1))
-        .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 6)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity)
+        .background {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [accent[0].opacity(0.08), accent[1].opacity(0.04)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                }
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(colors: [accent[0].opacity(0.4), accent[1].opacity(0.2)],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing),
+                    lineWidth: 1
+                )
+        }
+        .shadow(color: accent[0].opacity(0.15), radius: 8, x: 0, y: 4)
+    }
+}
+
+extension Color {
+    init(hex: String) {
+        let v = UInt64(hex, radix: 16) ?? 0
+        let r = Double((v >> 16) & 0xFF) / 255
+        let g = Double((v >> 8) & 0xFF) / 255
+        let b = Double(v & 0xFF) / 255
+        self.init(red: r, green: g, blue: b)
     }
 }
 
