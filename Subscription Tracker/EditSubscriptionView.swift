@@ -36,24 +36,34 @@ struct EditSubscriptionView: View {
     }
 
     var body: some View {
-        NavigationView {
-            Form {
-                Section(header: Text("Details")) {
-                    TextField("Name", text: $name)
-                        .focused($focusedField, equals: .name)
-                    TextField("Price", text: $price)
-                        .focused($focusedField, equals: .price)
-                    Picker("Cycle", selection: $cycle) {
-                        ForEach(BillingCycle.allCases) { c in
-                            Text(c.displayName).tag(c)
-                        }
-                    }
-                    DatePicker("Next due", selection: $date, displayedComponents: .date)
-                }
+        NavigationStack {
+            ZStack {
+                LinearGradient(
+                    colors: [Color.primary.opacity(0.02), Color.gray.opacity(0.1)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
 
-                if isSubmitting {
-                    Section { ProgressView("Saving...") }
+                Form {
+                    Section(header: Text("Details")) {
+                        TextField("Name", text: $name)
+                            .focused($focusedField, equals: .name)
+                        TextField("Price", text: $price)
+                            .focused($focusedField, equals: .price)
+                        Picker("Cycle", selection: $cycle) {
+                            ForEach(BillingCycle.allCases) { c in
+                                Text(c.displayName).tag(c)
+                            }
+                        }
+                        DatePicker("Next due", selection: $date, displayedComponents: .date)
+                    }
+
+                    if isSubmitting {
+                        Section { ProgressView("Saving...") }
+                    }
                 }
+                .scrollContentBackground(.hidden)
             }
             .navigationTitle("Edit Subscription")
             .toolbar {
